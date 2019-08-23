@@ -1,5 +1,5 @@
 #
-# Copyright 2015 (c) Pointwise, Inc.
+# Copyright 2015-2019 (c) Pointwise, Inc.
 # All rights reserved.
 #
 # This sample Pointwise script is not supported by Pointwise, Inc.
@@ -203,7 +203,7 @@ set dbProjEnts [list]
 proc defineDBProjEnts {} {
   global entList dbProjEnts
   foreach ent $entList {
-    lappend dbProjEnts [$ent getDatabaseEntities]
+    lappend dbProjEnts [$ent getDatabaseEntities -solver]
   }
 }
 
@@ -234,13 +234,14 @@ proc projectCurrentDomains {} {
   set idx 0
   set mod [pw::Application begin Modify $entList]
   foreach ent $entList {
-    if {"" != [lindex $dbProjEnts $idx]} {
+    if {0 < [llength [lindex $dbProjEnts $idx]] } {
       set projEnts [list]
       foreach dbEnt [lindex $dbProjEnts $idx] {
-        if {[$dbEnt isBaseForProject]} {
+        if {[$dbEnt isSurface] && [$dbEnt isBaseForProject]} {
           lappend projEnts $dbEnt
         }
       }
+      puts "[$ent getName] : $projEnts"
       pw::GridEntity project -interior $ent $projEnts
       incr idx
     }
@@ -282,10 +283,12 @@ proc matchOriginalConnectors {refStep} {
             lappend splitLocs $par1
           }
         }
-        set splitLocs [lsort -unique $splitLocs]
-        if {[catch {$con split $splitLocs}]} {
-          puts "Warning: Could not split [$con getName]."
-          exit 1
+        if [llength $splitLocs] {
+          set splitLocs [lsort -unique $splitLocs]
+          if {[catch {$con split $splitLocs}]} {
+            puts "Warning: Could not split [$con getName]. ($splitLocs)"
+            exit 1
+          }
         }
       }
     }
@@ -804,42 +807,36 @@ proc makeWindow {} {
 
 proc pwLogo {} {
   set logoData "
-R0lGODlheAAYAIcAAAAAAAICAgUFBQkJCQwMDBERERUVFRkZGRwcHCEhISYmJisrKy0tLTIyMjQ0
-NDk5OT09PUFBQUVFRUpKSk1NTVFRUVRUVFpaWlxcXGBgYGVlZWlpaW1tbXFxcXR0dHp6en5+fgBi
-qQNkqQVkqQdnrApmpgpnqgpprA5prBFrrRNtrhZvsBhwrxdxsBlxsSJ2syJ3tCR2siZ5tSh6tix8
-ti5+uTF+ujCAuDODvjaDvDuGujiFvT6Fuj2HvTyIvkGKvkWJu0yUv2mQrEOKwEWNwkaPxEiNwUqR
-xk6Sw06SxU6Uxk+RyVKTxlCUwFKVxVWUwlWWxlKXyFOVzFWWyFaYyFmYx16bwlmZyVicyF2ayFyb
-zF2cyV2cz2GaxGSex2GdymGezGOgzGSgyGWgzmihzWmkz22iymyizGmj0Gqk0m2l0HWqz3asznqn
-ynuszXKp0XKq1nWp0Xaq1Hes0Xat1Hmt1Xyt0Huw1Xux2IGBgYWFhYqKio6Ojo6Xn5CQkJWVlZiY
-mJycnKCgoKCioqKioqSkpKampqmpqaurq62trbGxsbKysrW1tbi4uLq6ur29vYCu0YixzYOw14G0
-1oaz14e114K124O03YWz2Ie12oW13Im10o621Ii22oi23Iy32oq52Y252Y+73ZS51Ze81JC625G7
-3JG825K83Je72pW93Zq92Zi/35G+4aC90qG+15bA3ZnA3Z7A2pjA4Z/E4qLA2KDF3qTA2qTE3avF
-36zG3rLM3aPF4qfJ5KzJ4LPL5LLM5LTO4rbN5bLR6LTR6LXQ6r3T5L3V6cLCwsTExMbGxsvLy8/P
-z9HR0dXV1dbW1tjY2Nra2tzc3N7e3sDW5sHV6cTY6MnZ79De7dTg6dTh69Xi7dbj7tni793m7tXj
-8Nbk9tjl9N3m9N/p9eHh4eTk5Obm5ujo6Orq6u3t7e7u7uDp8efs8uXs+Ozv8+3z9vDw8PLy8vL0
-9/b29vb5+/f6+/j4+Pn6+/r6+vr6/Pn8/fr8/Pv9/vz8/P7+/gAAACH5BAMAAP8ALAAAAAB4ABgA
-AAj/AP8JHEiwoMGDCBMqXMiwocOHECNKnEixosWLGDNqZCioo0dC0Q7Sy2btlitisrjpK4io4yF/
-yjzKRIZPIDSZOAUVmubxGUF88Aj2K+TxnKKOhfoJdOSxXEF1OXHCi5fnTx5oBgFo3QogwAalAv1V
-yyUqFCtVZ2DZceOOIAKtB/pp4Mo1waN/gOjSJXBugFYJBBflIYhsq4F5DLQSmCcwwVZlBZvppQtt
-D6M8gUBknQxA879+kXixwtauXbhheFph6dSmnsC3AOLO5TygWV7OAAj8u6A1QEiBEg4PnA2gw7/E
-uRn3M7C1WWTcWqHlScahkJ7NkwnE80dqFiVw/Pz5/xMn7MsZLzUsvXoNVy50C7c56y6s1YPNAAAC
-CYxXoLdP5IsJtMBWjDwHHTSJ/AENIHsYJMCDD+K31SPymEFLKNeM880xxXxCxhxoUKFJDNv8A5ts
-W0EowFYFBFLAizDGmMA//iAnXAdaLaCUIVtFIBCAjP2Do1YNBCnQMwgkqeSSCEjzzyJ/BFJTQfNU
-WSU6/Wk1yChjlJKJLcfEgsoaY0ARigxjgKEFJPec6J5WzFQJDwS9xdPQH1sR4k8DWzXijwRbHfKj
-YkFO45dWFoCVUTqMMgrNoQD08ckPsaixBRxPKFEDEbEMAYYTSGQRxzpuEueTQBlshc5A6pjj6pQD
-wf9DgFYP+MPHVhKQs2Js9gya3EB7cMWBPwL1A8+xyCYLD7EKQSfEF1uMEcsXTiThQhmszBCGC7G0
-QAUT1JS61an/pKrVqsBttYxBxDGjzqxd8abVBwMBOZA/xHUmUDQB9OvvvwGYsxBuCNRSxidOwFCH
-J5dMgcYJUKjQCwlahDHEL+JqRa65AKD7D6BarVsQM1tpgK9eAjjpa4D3esBVgdFAB4DAzXImiDY5
-vCFHESko4cMKSJwAxhgzFLFDHEUYkzEAG6s6EMgAiFzQA4rBIxldExBkr1AcJzBPzNDRnFCKBpTd
-gCD/cKKKDFuYQoQVNhhBBSY9TBHCFVW4UMkuSzf/fe7T6h4kyFZ/+BMBXYpoTahB8yiwlSFgdzXA
-5JQPIDZCW1FgkDVxgGKCFCywEUQaKNitRA5UXHGFHN30PRDHHkMtNUHzMAcAA/4gwhUCsB63uEF+
-bMVB5BVMtFXWBfljBhhgbCFCEyI4EcIRL4ChRgh36LBJPq6j6nS6ISPkslY0wQbAYIr/ahCeWg2f
-ufFaIV8QNpeMMAkVlSyRiRNb0DFCFlu4wSlWYaL2mOp13/tY4A7CL63cRQ9aEYBT0seyfsQjHedg
-xAG24ofITaBRIGTW2OJ3EH7o4gtfCIETRBAFEYRgC06YAw3CkIqVdK9cCZRdQgCVAKWYwy/FK4i9
-3TYQIboE4BmR6wrABBCUmgFAfgXZRxfs4ARPPCEOZJjCHVxABFAA4R3sic2bmIbAv4EvaglJBACu
-IxAMAKARBrFXvrhiAX8kEWVNHOETE+IPbzyBCD8oQRZwwIVOyAAXrgkjijRWxo4BLnwIwUcCJvgP
-ZShAUfVa3Bz/EpQ70oWJC2mAKDmwEHYAIxhikAQPeOCLdRTEAhGIQKL0IMoGTGMgIBClA9QxkA3U
-0hkKgcy9HHEQDcRyAr0ChAWWucwNMIJZ5KilNGvpADtt5JrYzKY2t8nNbnrzm+B8SEAAADs="
+R0lGODlhngAaAOfeACMfIBBfrRFfrRRgrhVhrhZhrhdhrhhhrhphrhhirhtjryJkryNkryhmsCpm
+rytnsCxnsC1nsC9osDFpsTVqsTZrsTltsjxtsj1usj9usj9vsz9ws0Fws0Jws0VytEZytERztUdz
+tEhztEp0tU53tkx4t094t1F5tlJ5tlJ5t1R6t1Z7t1d8uFl9uF1/uWWFvGeFvGWGvGiHvWuKvmuK
+v22KvnKNv3OOwHWQwXaQwHaRwXiSwXuUwnyUwn6Vw3+Ww36XxIGXxICYxIGYxIGZxYOaxYecxoid
+xoqex4ufyI6hyJCjypGkypCly5Wny5epzZqrzZqrzp2tzp2tz6Cv0KCw0KGx0aKx0aOy0aSz0qWz
+0aWz0qW00qa00qi206m31Ku41ay51ay61q261a271q6816+81rC917G+2LK+2LO/2bTA2bTB2rXB
+2bXB2rbC2rfC2rjD27jE27nE27nE3LrE27rF3LvF3LzG3bvH3b3H3b7H3b7I3r/I3sHK38HL38LM
+4MPM38PN4cXN4MXN4cPO4cbO4cbP4cfP4sfQ4sjQ4sjR48rS48rS5MrT5MvT5MzT48zU5M7V5c/W
+5s/X5tDX5tHX59HY59LZ59LZ6NPZ59Pa6NXb6dTc6dbc6dbd6tfd6tje6tje69jf7Nrf69vh7dzh
+7dzi7t3i7d3j7t7j7d/k7t/k7+Dl7+Hl7+Hm7+Hm8OLm7+Lm8OLn8OPn8OPo8eTo8eXp8ebq8ufq
+8ufr8ufr8+ns8+nt9Oru9Oru9evu9Ovu9evv9ezv9ezw9u3w9u7w9u7x9u7x9+/x9+7y9+/y9/Dy
+9+/z+PDz+PHz+PL0+PP1+fT3+vX3+/f4+/f5+/f5/Pj5+/n6/Pr7/fz8/fz9/v7+/v7+////////
+////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////yH5BAEKAP8ALAAAAACeABoA
+AAj+AP8JHEiwoMGDCBMqXMiwocOHECNKnEixosWLGBUC+LdxIICPIEN2VNgEzyZg2zzp0ZFQpECR
+MD8SjEnzZciDI2e6dKkTZEuaMV/iBOrzYJFjx9Cw4VWCR5phgSIMLUr0ps2qMjla1Tk1K0+PWw1i
+3bqx7FWiB9f0KkNtWbdlbQoEgJCIkwGxVsd61Xs2K1i8ecNqLdoVq0eOiAdXLXjo2BNitk51ymKN
+ValRjKiRIRCg516+ekd+vVoQZt/Sgj0bTpyT78BguSRt60XN27ZGW5TFqJEkzbZjc1T3XRwaLGHF
+qAmPVuw3+djDOZnXFKjh2IocsBRl8yasmBthAcL+B3hmAk4045+fF0cvmuzX5UEzQvzK5U8AJdzq
+UMrz6sQqalGIt0wDAaywyWnMAdbcfO4pF9Zy0snHYFEBWIIEC748swMyFKwiCC86oFJJBh78It4e
+CEIIoUOmRZgge4VFJ6F08QWQCg2xTBHEMNdoAo0zIwRwwBq62AGIeHKkmJqKqQkXYYsIOnfccNP9
+tFoAmHzCSHhSXDLEBrjYIB4W3hAh3iCPvMjklC8i9B5aTip4XGgyqgbUP+F9cY0I4Z0RRnhTTBKe
+BKg04osK4bUChJpLNsqmlFQKtiKV7C1mJZzhgaGND+EZ8kR4DAzjggqr0BEAFbRMgIIwBTDK5pr+
+C8pZ6atNzhpplTHGR0IAqlhRTBUIQLKEeGLIUgwV4vGxiB5qdMYTrDJO6uSdkGr07HpuwjnQA84c
+4AImwRhzSBdwhLJMNTOIF8ACriCDgbOB0SpvrLJGWq+1VLl2aZ0EFdKKeCk4IsobXvyQQBt3qFvB
+Lcl8oOS80dYaZ3zV4usTlBFJK9A2pKirhR7qhoDMBeFdgMoaaUTycKzQNnTtihoP56JEMf9TjRHi
+CbGJugH4YUYAMNyihgAOmLJyxBC73CC9be5bVs3ZPlqQNLz00UEAFizDcwvFxFEME+LB2HSUYjO0
+NL8xt4jxhEwXBMIcyBByxC4vhEcCE4xgAwp9B2GL3XLFCz3Y9mjP0Uht1G0XFIAGV2TCzDTMNJNL
+JFDg0MsA4VX7d5yBLyh104XTaTG/B4knQy0KCKDuJk50prmjLEuM1+yIt2ap4bje25B4s9zAcw+u
+FEb28GNrhNPodhKOrfASjYEIz/sSv/mMZeMu5+3UZ6/99twnFBAAOw=="
 
   return [image create photo -format GIF -data $logoData]
 }
